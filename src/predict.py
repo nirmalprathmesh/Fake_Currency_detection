@@ -5,6 +5,7 @@ import numpy as np
 from PIL import Image
 
 from feature_extraction import extract_features
+from predict_fake import predict_fake   # import fake model
 
 
 def load_model():
@@ -19,50 +20,24 @@ def load_model():
     return model
 
 
-def predict_note(image_path):
+def predict_note_and_authenticity(image_path):
 
     model = load_model()
 
-    try:
-        img = Image.open(image_path)
-        img = img.convert("RGB")
-        img = np.array(img)
-
-    except:
-        print("Error loading image:", image_path)
-        return None
+    img = Image.open(image_path)
+    img = img.convert("RGB")
+    img = np.array(img)
 
     img = cv2.resize(img, (256,128))
 
     feature = extract_features(img)
 
-    prediction = model.predict([feature])
+    denomination = model.predict([feature])[0]
 
-    return prediction[0]
+    # 🔥 Only check fake for high-value notes
+    if denomination in ["500", "2000"]:
+        authenticity = predict_fake(image_path)
+    else:
+        authenticity = "real"
 
-
-if __name__ == "__main__":
-
-    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-
-    test_folder = os.path.join(base_dir, "Dataset", "test1")
-
-    files = [f for f in os.listdir(test_folder) if not f.startswith("Background")]
-
-    correct = 0
-    total = 0
-
-    for file in files:
-
-        image_path = os.path.join(test_folder, file)
-
-        prediction = predict_note(image_path)
-
-        true_label = file.split("_")[0]
-
-        if prediction == true_label:
-            correct += 1
-
-        total += 1
-
-    print("\nAccuracy:", (correct/total)*100, "%")
+    return denomination, authenticity
